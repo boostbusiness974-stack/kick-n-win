@@ -1,0 +1,38 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Reset simple */
+* { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  min-height: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+/* Fond bleu + texte lisible partout */
+body {
+  @apply min-h-screen bg-blue-600 text-white font-sans;
+}
+
+/* Titres */
+h1, h2, h3 {
+  @apply text-white font-extrabold;
+}
+
+/* Paragraphes */
+p {
+  @apply text-gray-100;
+}
+
+/* Liens */
+a {
+  @apply text-white underline decoration-white/50 hover:decoration-white;
+}
+
+/* Boutons */
+button {
+  @apply bg-white text-blue-700 font-semibold px-4 py-2 rounded-lg shadow;
+}
