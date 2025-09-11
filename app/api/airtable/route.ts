@@ -1,20 +1,49 @@
 // app/api/airtable/route.ts
 import { NextResponse } from "next/server";
 
+// Forcer l’exécution côté Node (pas Edge), pas de cache ISR
+export const runtime = "nodejs";
+export const revalidate = 0;
+
 const {
   AIRTABLE_TOKEN,
   AIRTABLE_BASE_ID,
-  AIRTABLE_TABLE,    // nom lisible (ex: "Gestion des Joueurs")
-  AIRTABLE_TABLE_ID, // ID de table (ex: "tblXXXXXXXXXXXX")
+  AIRTABLE_TABLE, // ex: "Gestion des Joueurs"
+  AIRTABLE_TABLE_ID, // ex: "tblXXXXXXXXXXXX"
 } = process.env;
 
-/**
- * GET -> renvoie { ok: true, count: number }
- * Utilisé par la landing pour afficher la barre de progression.
- */
+// --- Types Airtable minimalistes ---
+interface AirtableRecord<T = any> {
+  id: string;
+  createdTime?: string;
+  fields: T;
+}
+interface AirtableListResponse<T = any> {
+  records: AirtableRecord<T>[];
+  offset?: string;
+}
+interface AirtableCreateRequest<T = any> {
+  records: Array<{ fields: T }>;
+}
+type LeadFields = { Pseudo: string; Email: string };
+
+// --- Helpers ---
+function tablePath(): string {
+  return encodeURIComponent(AIRTABLE_TABLE_ID ?? AIRTABLE_TABLE ?? "");
+}
+function baseUrl(): string {
+  return `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${tablePath()}`;
+}
+function authHeaders() {
+  return {
+    Authorization: `Bearer ${AIRTABLE_TOKEN as string}`,
+    "Content-Type": "application/json",
+  };
+}
+
+// GET -> { ok, count }
 export async function GET() {
   try {
-    // Vérif env
     if (!AIRTABLE_TOKEN || !AIRTABLE_BASE_ID || (!AIRTABLE_TABLE && !AIRTABLE_TABLE_ID)) {
       return NextResponse.json(
         {
@@ -30,25 +59,21 @@ export async function GET() {
       );
     }
 
-    const tablePath = encodeURIComponent(AIRTABLE_TABLE_ID ?? AIRTABLE_TABLE!);
-    const baseUrl = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${tablePath}`;
-
     let count = 0;
     let offset: string | undefined = undefined;
 
-    // Itère sur toutes les pages (pageSize=100) pour compter correctement
+    // Pagination : on compte toutes les pages (100 par page)
     do {
-      const url: string = offset
-  ? `${baseUrl}?pageSize=100&offset=${offset}`
-  : `${baseUrl}?pageSize=100`;
+      const listUrl: string = offset
+        ? `${baseUrl()}?pageSize=100&offset=${offset}`
+        : `${baseUrl()}?pageSize=100`;
 
-
-      const res = await fetch(url, {
-        headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}` },
+      const res = await fetch(listUrl, {
+        headers: authHeaders(),
         cache: "no-store",
       });
 
-      const data = await res.json();
+      const data = (await res.json()) as AirtableListResponse<LeadFields>;
       if (!res.ok) {
         return NextResponse.json(
           { ok: false, status: res.status, airtable: data },
@@ -57,7 +82,7 @@ export async function GET() {
       }
 
       count += Array.isArray(data.records) ? data.records.length : 0;
-      offset = data.offset; // undefined quand il n'y a plus de page
+      offset = data.offset;
     } while (offset);
 
     return NextResponse.json({ ok: true, count }, { status: 200 });
@@ -66,13 +91,9 @@ export async function GET() {
   }
 }
 
-/**
- * POST -> crée un enregistrement { Pseudo, Email } dans Airtable
- * Body JSON: { pseudo: string, email: string }
- */
+// POST -> crée {Pseudo, Email}
 export async function POST(req: Request) {
   try {
-    // 1) Vérif env
     if (!AIRTABLE_TOKEN || !AIRTABLE_BASE_ID || (!AIRTABLE_TABLE && !AIRTABLE_TABLE_ID)) {
       return NextResponse.json(
         {
@@ -88,14 +109,17 @@ export async function POST(req: Request) {
       );
     }
 
-    // 2) Vérif Content-Type + body
-    if (req.headers.get("content-type")?.includes("application/json") !== true) {
+    if (!req.headers.get("content-type")?.includes("application/json")) {
       return NextResponse.json(
         { ok: false, error: 'Content-Type must be "application/json"' },
         { status: 415 }
       );
     }
-    const { pseudo, email } = await req.json();
+
+    const body = (await req.json()) as { pseudo?: string; email?: string };
+    const pseudo = body.pseudo?.trim();
+    const email = body.email?.trim();
+
     if (!pseudo || !email) {
       return NextResponse.json(
         { ok: false, error: "Missing fields pseudo and/or email" },
@@ -103,29 +127,22 @@ export async function POST(req: Request) {
       );
     }
 
-    // 3) URL Airtable (privilégier l'ID de table s'il est présent)
-    const tablePath = encodeURIComponent(AIRTABLE_TABLE_ID ?? AIRTABLE_TABLE!);
-    const url = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${tablePath}`;
+    const payload: AirtableCreateRequest<LeadFields> = {
+      records: [{ fields: { Pseudo: pseudo, Email: email } }],
+    };
 
-    // 4) Appel Airtable
-    const airtableRes = await fetch(url, {
+    const res = await fetch(baseUrl(), {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${AIRTABLE_TOKEN}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        records: [{ fields: { Pseudo: pseudo, Email: email } }],
-      }),
+      headers: authHeaders(),
+      body: JSON.stringify(payload),
       cache: "no-store",
     });
 
-    const data = await airtableRes.json().catch(() => ({}));
-    if (!airtableRes.ok) {
-      // renvoie tel quel pour voir 403/422 etc.
+    const data = (await res.json()) as AirtableListResponse<LeadFields>;
+    if (!res.ok) {
       return NextResponse.json(
-        { ok: false, status: airtableRes.status, airtable: data },
-        { status: airtableRes.status }
+        { ok: false, status: res.status, airtable: data },
+        { status: res.status }
       );
     }
 
@@ -134,3 +151,4 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: String(e) }, { status: 500 });
   }
 }
+
