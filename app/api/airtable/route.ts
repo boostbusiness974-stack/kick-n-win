@@ -38,7 +38,10 @@ export async function GET() {
 
     // Itère sur toutes les pages (pageSize=100) pour compter correctement
     do {
-      const url = offset ? `${baseUrl}?pageSize=100&offset=${offset}` : `${baseUrl}?pageSize=100`;
+      const url: string = offset
+  ? `${baseUrl}?pageSize=100&offset=${offset}`
+  : `${baseUrl}?pageSize=100`;
+
 
       const res = await fetch(url, {
         headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}` },
