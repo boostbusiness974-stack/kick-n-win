@@ -1,9 +1,48 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
+
 export default function Home() {
-  // ===== Progression des places =====
+  // ===== Capacités =====
   const TOTAL = 100;
-  const USED = 68;
-  const remaining = Math.max(0, TOTAL - USED);
-  const percent = Math.min(100, Math.round((USED / TOTAL) * 100));
+
+  // ===== Compteur dynamique (Airtable) =====
+  const [used, setUsed] = useState(0);
+
+  useEffect(() => {
+    async function fetchCount() {
+      try {
+        // On tente de récupérer la liste des records depuis ton endpoint
+        const res = await fetch("/api/airtable", { cache: "no-store" });
+        const data = await res.json();
+
+        // Si la route renvoie des records (cas où tu feras un GET qui liste)
+        if (Array.isArray(data?.airtable?.records)) {
+          setUsed(data.airtable.records.length);
+          return;
+        }
+
+        // Fallback si ta route GET ne liste pas encore (garde une valeur mini)
+        // -> Tu peux supprimer ce fallback quand ton GET renverra la liste
+        if (typeof data?.count === "number") {
+          setUsed(data.count);
+          return;
+        }
+      } catch (e) {
+        console.error("Fetch count error:", e);
+      }
+    }
+
+    // Premier chargement
+    fetchCount();
+    // Rafraîchit toutes les 5 secondes
+    const id = setInterval(fetchCount, 5000);
+    return () => clearInterval(id);
+  }, []);
+
+  const remaining = Math.max(0, TOTAL - used);
+  const percent = Math.min(100, Math.round((used / TOTAL) * 100));
 
   return (
     <main className="flex flex-col items-center justify-start text-center">
@@ -11,15 +50,15 @@ export default function Home() {
       <section className="section pt-10 pb-6">
         {/* Logo + halo */}
         <div className="flex justify-center items-center mb-6">
-  <div className="logo-badge">
-    <img
-      src="/logo2.png"
-      alt="Kick’n Win Logo"
-      className="h-[200px] md:h-[260px] w-auto select-none mx-auto"
-      loading="eager"
-    />
-  </div>
-</div>
+          <div className="logo-badge">
+            <img
+              src="/logo2.png"
+              alt="Kick’n Win Logo"
+              className="h-[200px] md:h-[260px] w-auto select-none mx-auto"
+              loading="eager"
+            />
+          </div>
+        </div>
 
         {/* Titre principal */}
         <h1 className="mt-2 text-4xl md:text-6xl font-extrabold leading-tight">
@@ -36,9 +75,12 @@ export default function Home() {
 
         {/* CTA */}
         <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
-          <button className="btn-primary">🚀 Je réserve ma place</button>
+          <Link href="/inscription">
+            <button className="btn-primary">🚀 Je réserve ma place</button>
+          </Link>
           <button className="btn-secondary">Voir les lots</button>
         </div>
+
         <p className="mt-3 text-xs text-white/70">
           Ton email sera utilisé uniquement pour la bêta fermée.
         </p>
@@ -48,10 +90,17 @@ export default function Home() {
           <div className="flex items-baseline justify-between mb-2">
             <p className="text-sm text-white/85">Places restantes</p>
             <p className="text-sm text-white/70">
-              {USED} / {TOTAL} ({percent}%)
+              {used} / {TOTAL} ({percent}%)
             </p>
           </div>
-          <div className="progress" role="progressbar" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100} aria-label="Progression des places">
+          <div
+            className="progress"
+            role="progressbar"
+            aria-valuenow={percent}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label="Progression des places"
+          >
             <div className="progress-bar" style={{ width: `${percent}%` }} />
           </div>
           <p className="mt-2 text-xs text-white/70">
@@ -120,7 +169,9 @@ export default function Home() {
         <div className="card p-8 text-center">
           <h3 className="text-2xl md:text-3xl font-extrabold mb-3">Prêt à grimper au classement ?</h3>
           <p className="text-gray-300 mb-6">Réserve ta place maintenant : c’est gratuit.</p>
-          <button className="btn-primary">🎯 Je m’inscris</button>
+          <Link href="/inscription">
+            <button className="btn-primary">🎯 Je m’inscris</button>
+          </Link>
         </div>
       </section>
     </main>
