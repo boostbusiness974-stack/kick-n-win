@@ -72,7 +72,7 @@ export default function Home() {
         <p className="mt-6 mx-auto max-w-2xl text-gray-300 text-lg">
           L’app de pronostics foot <span className="text-primary font-bold">100% gratuite</span> :
           chaque bon choix te fait grimper au classement et t’offre des récompenses réelles.
-          Pas d’argent réel, juste des Kicks et des lots.
+          Pas d’argent réel, juste des Kicks (notre monnaie virutelle) et des lots.
         </p>
 
         {/* CTA */}
@@ -80,7 +80,7 @@ export default function Home() {
           <Link href="/inscription">
             <button className="btn-primary">🚀 Je réserve ma place</button>
           </Link>
-          <button className="btn-secondary">Voir les lots</button>
+          
         </div>
 
         <p className="mt-3 text-xs text-white/70">
@@ -129,7 +129,7 @@ export default function Home() {
           </div>
           <div className="card p-6">
             <h3 className="text-xl font-bold text-secondary mb-2">4) Remporte des lots réels</h3>
-            <p className="text-gray-300">Bons d’achat, maillots, casques… Tes pronos paient enfin.</p>
+            <p className="text-gray-300">Des cartes cadeaux, des maillots, des invitations a des évènements… Tes pronos paient enfin.</p>
           </div>
         </div>
       </section>
@@ -139,15 +139,15 @@ export default function Home() {
         <h2 className="text-3xl md:text-4xl font-bold mb-8">🎁 Ce que tu peux gagner</h2>
         <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4 text-left">
           {[
-            "Bons d’achat Amazon",
-            "Maillots de foot officiels",
-            "Casques/écouteurs",
-            "Cartes cadeaux (PSN/Xbox/Steam)",
-            "Places de match",
-            "Maillots dédicacés (opérations spéciales)",
-            "Coffrets cadeaux sports",
-            "Goodies Kick’n Win",
-            "Ballons & équipements",
+            "Des bons d’achat Amazon",
+            "Des maillots de foot officiels",
+            "Des places de cinéma",
+            "Des cartes cadeaux (PSN/Xbox/Steam)",
+            "Des places de match",
+            "Des maillots dédicacés (opérations spéciales)",
+            "Des coffrets cadeaux sports",
+            "Des coffrets cocktails pour deux ",
+            "Des sesssion d'activités outdoor",
           ].map((label) => (
             <div key={label} className="card p-5">
               <p className="font-semibold">{label}</p>
