@@ -1,148 +1,54 @@
 // app/api/airtable/route.ts
 import { NextResponse } from "next/server";
 
-// Forcer l’exécution côté Node (pas Edge), pas de cache ISR
-export const runtime = "nodejs";
-export const revalidate = 0;
+const { AIRTABLE_TOKEN, AIRTABLE_BASE_ID, AIRTABLE_TABLE, AIRTABLE_TABLE_ID } = process.env;
 
-const {
-  AIRTABLE_TOKEN,
-  AIRTABLE_BASE_ID,
-  AIRTABLE_TABLE, // ex: "Gestion des Joueurs"
-  AIRTABLE_TABLE_ID, // ex: "tblXXXXXXXXXXXX"
-} = process.env;
-
-// --- Types Airtable minimalistes ---
-interface AirtableRecord<T = any> {
-  id: string;
-  createdTime?: string;
-  fields: T;
-}
-interface AirtableListResponse<T = any> {
-  records: AirtableRecord<T>[];
-  offset?: string;
-}
-interface AirtableCreateRequest<T = any> {
-  records: Array<{ fields: T }>;
-}
-type LeadFields = { Pseudo: string; Email: string };
-
-// --- Helpers ---
-function tablePath(): string {
-  return encodeURIComponent(AIRTABLE_TABLE_ID ?? AIRTABLE_TABLE ?? "");
-}
-function baseUrl(): string {
-  return `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${tablePath()}`;
-}
-function authHeaders() {
-  return {
-    Authorization: `Bearer ${AIRTABLE_TOKEN as string}`,
-    "Content-Type": "application/json",
-  };
+function tablePath() {
+  return encodeURIComponent(AIRTABLE_TABLE_ID || AIRTABLE_TABLE || "");
 }
 
-// GET -> { ok, count }
-export async function GET() {
-  try {
-    if (!AIRTABLE_TOKEN || !AIRTABLE_BASE_ID || (!AIRTABLE_TABLE && !AIRTABLE_TABLE_ID)) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: "Missing environment variables",
-          needs: {
-            AIRTABLE_TOKEN: !!AIRTABLE_TOKEN,
-            AIRTABLE_BASE_ID: !!AIRTABLE_BASE_ID,
-            oneOf: { AIRTABLE_TABLE: !!AIRTABLE_TABLE, AIRTABLE_TABLE_ID: !!AIRTABLE_TABLE_ID },
-          },
-        },
-        { status: 500 }
-      );
-    }
-
-    let count = 0;
-    let offset: string | undefined = undefined;
-
-    // Pagination : on compte toutes les pages (100 par page)
-    do {
-      const listUrl: string = offset
-        ? `${baseUrl()}?pageSize=100&offset=${offset}`
-        : `${baseUrl()}?pageSize=100`;
-
-      const res = await fetch(listUrl, {
-        headers: authHeaders(),
-        cache: "no-store",
-      });
-
-      const data = (await res.json()) as AirtableListResponse<LeadFields>;
-      if (!res.ok) {
-        return NextResponse.json(
-          { ok: false, status: res.status, airtable: data },
-          { status: res.status }
-        );
-      }
-
-      count += Array.isArray(data.records) ? data.records.length : 0;
-      offset = data.offset;
-    } while (offset);
-
-    return NextResponse.json({ ok: true, count }, { status: 200 });
-  } catch (e: any) {
-    return NextResponse.json({ ok: false, error: String(e) }, { status: 500 });
-  }
-}
-
-// POST -> crée {Pseudo, Email}
 export async function POST(req: Request) {
   try {
-    if (!AIRTABLE_TOKEN || !AIRTABLE_BASE_ID || (!AIRTABLE_TABLE && !AIRTABLE_TABLE_ID)) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: "Missing environment variables",
-          needs: {
-            AIRTABLE_TOKEN: !!AIRTABLE_TOKEN,
-            AIRTABLE_BASE_ID: !!AIRTABLE_BASE_ID,
-            oneOf: { AIRTABLE_TABLE: !!AIRTABLE_TABLE, AIRTABLE_TABLE_ID: !!AIRTABLE_TABLE_ID },
-          },
-        },
-        { status: 500 }
-      );
+    // Vérif env
+    if (!AIRTABLE_TOKEN || !AIRTABLE_BASE_ID || !(AIRTABLE_TABLE || AIRTABLE_TABLE_ID)) {
+      return NextResponse.json({ ok: false, error: "Missing env" }, { status: 500 });
     }
 
+    // Vérif content-type + corps JSON
     if (!req.headers.get("content-type")?.includes("application/json")) {
-      return NextResponse.json(
-        { ok: false, error: 'Content-Type must be "application/json"' },
-        { status: 415 }
-      );
+      return NextResponse.json({ ok: false, error: "Content-Type must be application/json" }, { status: 415 });
     }
 
-    const body = (await req.json()) as { pseudo?: string; email?: string };
-    const pseudo = body.pseudo?.trim();
-    const email = body.email?.trim();
+    let body: any = {};
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json({ ok: false, error: "Invalid JSON body" }, { status: 400 });
+    }
 
+    const { pseudo, email } = body;
     if (!pseudo || !email) {
-      return NextResponse.json(
-        { ok: false, error: "Missing fields pseudo and/or email" },
-        { status: 400 }
-      );
+      return NextResponse.json({ ok: false, error: "Missing fields pseudo/email" }, { status: 400 });
     }
 
-    const payload: AirtableCreateRequest<LeadFields> = {
-      records: [{ fields: { Pseudo: pseudo, Email: email } }],
-    };
-
-    const res = await fetch(baseUrl(), {
+    const url = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${tablePath()}`;
+    const airtableRes = await fetch(url, {
       method: "POST",
-      headers: authHeaders(),
-      body: JSON.stringify(payload),
+      headers: {
+        Authorization: `Bearer ${AIRTABLE_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        records: [{ fields: { Pseudo: pseudo, Email: email } }],
+      }),
       cache: "no-store",
     });
 
-    const data = (await res.json()) as AirtableListResponse<LeadFields>;
-    if (!res.ok) {
+    const data = await airtableRes.json().catch(() => ({}));
+    if (!airtableRes.ok) {
       return NextResponse.json(
-        { ok: false, status: res.status, airtable: data },
-        { status: res.status }
+        { ok: false, status: airtableRes.status, airtable: data },
+        { status: airtableRes.status }
       );
     }
 
@@ -152,3 +58,7 @@ export async function POST(req: Request) {
   }
 }
 
+export async function GET() {
+  // Ping/healthcheck
+  return NextResponse.json({ ok: true, hint: "POST { pseudo, email }" });
+}

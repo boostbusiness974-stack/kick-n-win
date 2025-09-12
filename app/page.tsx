@@ -1,5 +1,4 @@
 "use client";
-
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
@@ -13,21 +12,19 @@ export default function Home() {
   useEffect(() => {
     async function fetchCount() {
       try {
-        // On tente de récupérer la liste des records depuis ton endpoint
-        const res = await fetch("/api/airtable", { cache: "no-store" });
+        // 👉 Nouvelle route dédiée au comptage
+        const res = await fetch("/api/airtable/count", { cache: "no-store" });
         const data = await res.json();
 
-        // Si la route renvoie des records (cas où tu feras un GET qui liste)
-        if (Array.isArray(data?.airtable?.records)) {
-          setUsed(data.airtable.records.length);
-          return;
-        }
-
-        // Fallback si ta route GET ne liste pas encore (garde une valeur mini)
-        // -> Tu peux supprimer ce fallback quand ton GET renverra la liste
+        // Réponse attendue: { ok: true, count: number }
         if (typeof data?.count === "number") {
           setUsed(data.count);
           return;
+        }
+
+        // (fallback) si un jour la route renvoyait records
+        if (Array.isArray(data?.airtable?.records)) {
+          setUsed(data.airtable.records.length);
         }
       } catch (e) {
         console.error("Fetch count error:", e);
