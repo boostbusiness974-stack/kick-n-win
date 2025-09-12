@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 import SignupForm from "@/components/SignupForm";
 
 export const metadata = { title: "Inscription bêta" };

@@ -63,7 +63,7 @@ export default function SignupForm() {
 
       <h1 className="mb-2 text-center text-2xl font-bold text-white">Inscription bêta</h1>
       <p className="mb-6 text-center text-gray-400">
-        Laisse ton pseudo et ton email, on te tient au courant 👇
+        
       </p>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>

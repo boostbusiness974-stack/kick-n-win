@@ -26,6 +26,11 @@ export default function Home() {
         if (Array.isArray(data?.airtable?.records)) {
           setUsed(data.airtable.records.length);
         }
+
+        // (fallback) si un jour la route renvoyait records
+        if (Array.isArray(data?.airtable?.records)) {
+          setUsed(data.airtable.records.length);
+        }
       } catch (e) {
         console.error("Fetch count error:", e);
       }
