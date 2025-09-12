@@ -1,7 +1,12 @@
 // app/api/airtable/count/route.ts
 import { NextResponse } from "next/server";
 
-const { AIRTABLE_TOKEN, AIRTABLE_BASE_ID, AIRTABLE_TABLE, AIRTABLE_TABLE_ID } = process.env;
+const {
+  AIRTABLE_TOKEN,
+  AIRTABLE_BASE_ID,
+  AIRTABLE_TABLE,
+  AIRTABLE_TABLE_ID,
+} = process.env;
 
 export async function GET() {
   try {
@@ -10,22 +15,25 @@ export async function GET() {
     }
 
     const table = encodeURIComponent(AIRTABLE_TABLE_ID || AIRTABLE_TABLE!);
+    // ✅ baseUrl corrigé
     const baseUrl = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${table}`;
 
     let offset: string | undefined = undefined;
     let total = 0;
 
     do {
-      const url = offset
+      // ✅ renommer + typer pour éviter l’erreur TS
+      const pageUrl: string = offset
         ? `${baseUrl}?pageSize=100&offset=${offset}`
         : `${baseUrl}?pageSize=100`;
 
-      const res = await fetch(url, {
+      const res = await fetch(pageUrl, {
         headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}` },
         cache: "no-store",
       });
 
-      const data = await res.json();
+      const data = await res.json() as { records?: any[]; offset?: string };
+
       if (!res.ok) {
         return NextResponse.json(
           { ok: false, status: res.status, airtable: data },
